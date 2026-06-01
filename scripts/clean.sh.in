@@ -1,0 +1,59 @@
+#!/bin/bash
+# @generated_file
+# clean.sh - Clean build artifacts
+# Usage: ./scripts/clean.sh [all|build|output]
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+BUILD_DIR="$PROJECT_ROOT/@BUILD_DIR_NAME@"
+OUTPUT_DIR="$PROJECT_ROOT/@OUTPUT_DIR_NAME@"
+
+CLEAN_MODE="${1:-all}"
+
+echo "========================================="
+echo "@PROJECT_NAME@ Clean Script"
+echo "========================================="
+
+clean_build() {
+    echo "Cleaning build directory..."
+    if [ -d "$BUILD_DIR" ]; then
+        rm -rf "$BUILD_DIR"/*
+        echo "  - Build directory cleaned"
+    else
+        echo "  - Build directory does not exist"
+    fi
+}
+
+clean_output() {
+    echo "Cleaning output directory..."
+    if [ -d "$OUTPUT_DIR" ]; then
+        rm -rf "$OUTPUT_DIR"/*
+        echo "  - Output directory cleaned"
+    else
+        echo "  - Output directory does not exist"
+    fi
+}
+
+case "$CLEAN_MODE" in
+    all)
+        clean_build
+        clean_output
+        ;;
+    build)
+        clean_build
+        ;;
+    output)
+        clean_output
+        ;;
+    *)
+        echo "Unknown clean mode: $CLEAN_MODE"
+        echo "Usage: $0 [all|build|output]"
+        exit 1
+        ;;
+esac
+
+echo "========================================="
+echo "Clean complete!"
+echo "========================================="

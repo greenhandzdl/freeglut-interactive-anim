@@ -1,0 +1,42 @@
+# CMake
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
+Makefile
+install_manifest.txt
+compile_commands.json
+
+# Build directory
+build/
+
+# Output directory
+output/
+
+# Generated scripts (from .sh.in templates)
+scripts/build.sh
+scripts/clean.sh
+scripts/run.sh
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Backup files
+*.bak
+*.backup
+
+# Compiled
+*.o
+*.so
+*.a
+*.lib
+*.dll
+*.exe
+*.dylib

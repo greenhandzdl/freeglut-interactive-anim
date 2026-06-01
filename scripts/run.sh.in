@@ -1,0 +1,27 @@
+#!/bin/bash
+# @generated_file
+# run.sh - Run the built application
+# Usage: ./scripts/run.sh
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+OUTPUT_DIR="$PROJECT_ROOT/@OUTPUT_DIR_NAME@"
+EXECUTABLE="$OUTPUT_DIR/@TARGET_NAME@"
+
+echo "========================================="
+echo "@PROJECT_NAME@ Run Script"
+echo "========================================="
+
+if [ ! -f "$EXECUTABLE" ]; then
+    echo "Error: Executable not found at $EXECUTABLE"
+    echo "Please build the project first using ./scripts/build.sh"
+    exit 1
+fi
+
+echo "Running: $EXECUTABLE"
+echo "========================================="
+echo ""
+
+"$EXECUTABLE"
