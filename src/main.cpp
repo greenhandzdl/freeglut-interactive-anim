@@ -75,6 +75,16 @@ static void keyboardCallback(unsigned char key, int x, int y) {
             }
             break;
 
+        case '[':
+            g.lightIntensity = std::max(g.lightIntensity - 0.2f, 0.2f);
+            std::cout << "[光源亮度] " << g.lightIntensity << std::endl;
+            break;
+
+        case ']':
+            g.lightIntensity = std::min(g.lightIntensity + 0.2f, 3.0f);
+            std::cout << "[光源亮度] " << g.lightIntensity << std::endl;
+            break;
+
         case '+':
         case '=':
             g.tessLevel = std::min(g.tessLevel + 0.5f, 12.0f);
@@ -168,7 +178,8 @@ static void printInfo() {
     std::cout << "  操作说明:" << std::endl;
     std::cout << "  W/A/S/D  — 移动人物（相对于摄像机方向）" << std::endl;
     std::cout << "  SPACE    — 跳跃" << std::endl;
-    std::cout << "  E        — 挥手（右臂）" << std::endl;
+    std::cout << "  E        — 挥手（右臂，朝向相机前方）" << std::endl;
+    std::cout << "  [/]      — 降低/增加光源亮度" << std::endl;
     std::cout << "  鼠标左键拖拽 — 旋转/升降摄像机" << std::endl;
     std::cout << "  鼠标滚轮 — 缩放摄像机" << std::endl;
     std::cout << "  +/-      — 增加/减少细分级别" << std::endl;

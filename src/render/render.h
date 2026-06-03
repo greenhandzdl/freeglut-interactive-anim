@@ -69,8 +69,11 @@ struct GlobalState {
     // 动画层Uniform位置
     GLint uWavePhase_loc = -1;
     GLint uWaveWeight_loc = -1;
-    GLint uAnimWeights_loc = -1;  // 每个骨骼组的层权重 [GROUP_COUNT][LAYER_COUNT]
-
+    GLint uCameraAngle_loc = -1;  // 相机角度用于挥手方向
+    
+    // 光照参数
+    float lightIntensity = 1.0f;  // 光源亮度强度
+    
     // 动画状态 - 按层组织
     AnimState animLayers[(int)AnimLayer::LAYER_COUNT];
     

@@ -24,6 +24,7 @@ uniform vec2  uMoveDir;
 uniform float uMoveSpeed;
 uniform float uWavePhase;
 uniform float uWaveWeight;
+uniform float uCameraAngle;  // 相机角度，用于计算挥手方向
 
 // 骨骼组到骨骼ID的映射
 // Group 0 (ROOT): bone 0, 1
@@ -185,20 +186,11 @@ void main() {
         if (!isLeft && uWaveWeight > 0.0) {
             float waveT = uWavePhase * 8.0;  // 快速挥手频率
             
-            // 大臂前举固定角度（约70度向前，负值表示向前）
-            waveShoulderAngle = -1.2;
+            // 大臂前举：指向相机前方，略微向上
+            waveShoulderAngle = -1.2;  // 向前举起约70度
             
-            // 小臂挥动：需要计算正交方向
-            // 大臂方向向量（前举后的大臂方向）
-            vec3 upperArmDir = vec3(0.0, cos(waveShoulderAngle), sin(waveShoulderAngle));
-            // 垂直向上的轴
-            vec3 upAxis = vec3(0.0, 1.0, 0.0);
-            // 计算正交轴：cross(upperArmDir, upAxis) 得到水平方向的轴
-            vec3 waveAxis = normalize(cross(upperArmDir, upAxis));
-            
-            // 使用绕正交轴的旋转来模拟小臂挥动
-            // 这里我们用Z轴旋转来近似（因为waveAxis接近X轴方向）
-            waveElbowAngle = 0.8 * sin(waveT);  // 增大幅度到0.8
+            // 小臂左右摆动
+            waveElbowAngle = 0.8 * sin(waveT);
         }
         
         // 最终角度计算（优先级：挥手 > 跳跃 > 行走）
@@ -233,9 +225,12 @@ void main() {
         // 如果是挥手状态，使用正交轴旋转
         vec3 normF;
         if (!isLeft && uWaveWeight > 0.0) {
-            vec3 upperArmDir = vec3(0.0, cos(finalShoulderAngle), sin(finalShoulderAngle));
+            float camCos = cos(uCameraAngle);
+            float camSin = sin(uCameraAngle);
+            vec3 waveDir = vec3(camSin * 0.5, cos(finalShoulderAngle), camCos * 0.5);
             vec3 upAxis = vec3(0.0, 1.0, 0.0);
-            vec3 waveAxis = normalize(cross(upperArmDir, upAxis));
+            vec3 waveAxis = normalize(cross(waveDir, upAxis));
+            
             foreRel = rotateAroundAxis(foreRel, waveAxis, finalElbowAngle);
             vec3 transformed_norm = rotateX(norm, finalShoulderAngle);
             normF = rotateAroundAxis(transformed_norm, waveAxis, finalElbowAngle);

@@ -201,6 +201,7 @@ void initShaders() {
     g.uCamPos_loc    = glGetUniformLocation(g.charProgram, "uCamPos");
     g.uWavePhase_loc = glGetUniformLocation(g.charProgram, "uWavePhase");
     g.uWaveWeight_loc= glGetUniformLocation(g.charProgram, "uWaveWeight");
+    g.uCameraAngle_loc = glGetUniformLocation(g.charProgram, "uCameraAngle");
 
     GLuint flVS = compileShader(GL_VERTEX_SHADER, FLOOR_VS);
     GLuint flFS = compileShader(GL_FRAGMENT_SHADER, FLOOR_FS);
@@ -219,12 +220,10 @@ void initShaders() {
 // 每帧更新（动画 + 输入处理）
 // ============================================================
 void updateAnimation(float dt) {
-    // 更新时间
-    if (g.moveSpeed > 0.05f) {
-        g.time += dt * g.moveSpeed;
-    } else if (g.jumpPhase <= 0.0f || g.jumpPhase >= 1.0f) {
-        g.time += dt * 0.2f;
-    }
+    // 更新时间 - 始终基于移动速度更新，确保动画连续播放
+    // 即使速度很小也要更新时间，避免动画停滞
+    float animSpeed = 0.2f + g.moveSpeed * 0.8f;  // 基础速度0.2，最大1.0
+    g.time += dt * animSpeed;
 
     // 跳跃状态机
     if (g.jumping && (g.jumpPhase <= 0.0f || g.jumpPhase >= 1.0f)) {
@@ -265,15 +264,24 @@ void updateAnimation(float dt) {
         dz /= len;
 
         // 修复：将相机坐标系下的输入转换为世界坐标系
-        // 相机角度是绕Y轴的旋转，需要反向旋转输入向量
+        // 相机位置: eye = charPos + (sin(angle)*dist, height, cos(angle)*dist)
+        // 当angle=0时，相机在+Z方向（人物后方），看向人物
+        // 相机的"前"方向是朝向人物，即(-sin(angle), 0, -cos(angle))
+        // 相机的"右"方向是(cos(angle), 0, -sin(angle))
+        
         float ca = g.cameraAngle;
         float cosA = cosf(ca);
         float sinA = sinf(ca);
         
-        // 正确的转换：输入是在相机空间，需要转换到世界空间
-        // 当相机在右侧时（angle>0），按W应该向左前方移动
-        float worldDx = dx * cosA + dz * sinA;
-        float worldDz = -dx * sinA + dz * cosA;
+        // 相机空间到世界空间的转换
+        // W键（相机前）: 世界方向 = (-sinA, 0, -cosA)
+        // S键（相机后）: 世界方向 = (sinA, 0, cosA)
+        // A键（相机左）: 世界方向 = (-cosA, 0, sinA)
+        // D键（相机右）: 世界方向 = (cosA, 0, -sinA)
+        
+        // 组合移动方向
+        float worldDx = -dz * sinA - dx * cosA;
+        float worldDz = -dz * cosA + dx * sinA;
         
         g.moveDirX = worldDx;
         g.moveDirZ = worldDz;
@@ -341,12 +349,15 @@ void renderScene() {
     glUniform1f(g.uWavePhase_loc, g.wavePhase);
     float waveWeight = g.waving ? 1.0f : 0.0f;
     glUniform1f(g.uWaveWeight_loc, waveWeight);
+    
+    // 相机角度（用于挥手方向）
+    glUniform1f(g.uCameraAngle_loc, g.cameraAngle);
 
     Vec3 lightPos = getLightPos();
     glUniform3f(g.uLightPos_loc, lightPos.x, lightPos.y, lightPos.z);
-    glUniform3f(g.uLightColor_loc, 0.9f, 0.85f, 0.8f);
+    glUniform3f(g.uLightColor_loc, 0.9f * g.lightIntensity, 0.85f * g.lightIntensity, 0.8f * g.lightIntensity);
     glUniform1f(g.uLightRadius_loc, 6.0f);
-    glUniform3f(g.uAmbient_loc, 0.12f, 0.12f, 0.15f);
+    glUniform3f(g.uAmbient_loc, 0.12f * g.lightIntensity, 0.12f * g.lightIntensity, 0.15f * g.lightIntensity);
 
     glUniform3f(g.uCoolColor_loc, 0.2f, 0.3f, 0.6f);
     glUniform3f(g.uWarmColor_loc, 0.7f, 0.5f, 0.2f);
