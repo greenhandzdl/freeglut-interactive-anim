@@ -291,11 +291,11 @@ static const JointConnectorDef CONNECTORS[] = {
     {  0.26f, 0.90f, 0.0f,    0.26f, 0.90f, 0.0f,   0.055f, 0.12f,  BONE_TORSO },
 
     // ===== 肘关节：从上臂底部到肘关节中心 =====
-    // 左上臂 y 范围 [0.15, 0.90]，肘关节 (-0.28,0.48,0)
-    // 连接器从 y=0.15 延伸到 y=0.48
-    { -0.26f, 0.15f, 0.0f,   -0.28f, 0.48f, 0.0f,   0.055f, 0.085f, BONE_L_UPPER_ARM },
+    // 左上臂 y 范围 [0.52, 0.90]，肘关节 (-0.28,0.48,0)
+    // 连接器从 y=0.52 延伸到 y=0.48
+    { -0.26f, 0.52f, 0.0f,   -0.28f, 0.48f, 0.0f,   0.055f, 0.045f, BONE_L_UPPER_ARM },
     // 右上臂
-    {  0.26f, 0.15f, 0.0f,    0.28f, 0.48f, 0.0f,   0.055f, 0.085f, BONE_R_UPPER_ARM },
+    {  0.26f, 0.52f, 0.0f,    0.28f, 0.48f, 0.0f,   0.055f, 0.045f, BONE_R_UPPER_ARM },
 
     // ===== 髋关节：从躯干底部到髋关节 =====
     // 躯干底部 y=0.15，髋关节 (-0.10,0.10,0)
@@ -303,10 +303,10 @@ static const JointConnectorDef CONNECTORS[] = {
     {  0.10f, 0.15f, 0.0f,    0.10f, 0.10f, 0.0f,   0.085f, 0.12f,  BONE_TORSO },
 
     // ===== 膝关节：从大腿底部到膝关节 =====
-    // 左大腿 y 范围 [-0.55, 0.10]，膝关节 (-0.11,-0.40,0)
-    { -0.10f, -0.55f, 0.0f,  -0.11f, -0.40f, 0.0f,  0.085f, 0.10f,  BONE_L_UPPER_LEG },
+    // 左大腿 y 范围 [-0.35, 0.10]，膝关节 (-0.11,-0.40,0)
+    { -0.10f, -0.35f, 0.0f,  -0.11f, -0.40f, 0.0f,  0.085f, 0.065f,  BONE_L_UPPER_LEG },
     // 右大腿
-    {  0.10f, -0.55f, 0.0f,   0.11f, -0.40f, 0.0f,  0.085f, 0.10f,  BONE_R_UPPER_LEG },
+    {  0.10f, -0.35f, 0.0f,   0.11f, -0.40f, 0.0f,  0.085f, 0.065f,  BONE_R_UPPER_LEG },
 };
 static const int NUM_CONNECTORS = sizeof(CONNECTORS) / sizeof(CONNECTORS[0]);
 
@@ -330,31 +330,35 @@ CharacterMesh buildCharacter() {
               4, sides, BONE_HEAD, mesh.vertices, mesh.indices);
 
     // ---- 左臂 ----
-    // 左上臂：y [0.15, 0.90]，半径 0.055
-    genCylinder(-0.26f, 0.525f, 0.0f, 0.055f, 0.75f,
+    // 左上臂：y [0.52, 0.90]，半径 0.055
+    genCylinder(-0.26f, 0.71f, 0.0f, 0.055f, 0.38f,
                 6, 2, BONE_L_UPPER_ARM, mesh.vertices, mesh.indices);
-    // 左前臂：y [-0.10, 0.68]，半径 0.045
-    genCylinder(-0.28f, 0.29f, 0.0f, 0.045f, 0.78f,
+    // 左前臂：y [0.10, 0.48]，半径 0.045
+    genCylinder(-0.28f, 0.29f, 0.0f, 0.045f, 0.38f,
                 6, 2, BONE_L_FOREARM, mesh.vertices, mesh.indices);
 
     // ---- 右臂 ----
-    genCylinder(0.26f, 0.525f, 0.0f, 0.055f, 0.75f,
+    // 右上臂：y [0.52, 0.90]，半径 0.055
+    genCylinder(0.26f, 0.71f, 0.0f, 0.055f, 0.38f,
                 6, 2, BONE_R_UPPER_ARM, mesh.vertices, mesh.indices);
-    genCylinder(0.28f, 0.29f, 0.0f, 0.045f, 0.78f,
+    // 右前臂：y [0.10, 0.48]，半径 0.045
+    genCylinder(0.28f, 0.29f, 0.0f, 0.045f, 0.38f,
                 6, 2, BONE_R_FOREARM, mesh.vertices, mesh.indices);
 
     // ---- 左腿 ----
-    // 左大腿：y [-0.55, 0.10]，半径 0.085
-    genCylinder(-0.10f, -0.225f, 0.0f, 0.085f, 0.65f,
+    // 左大腿：y [-0.35, 0.10]，半径 0.085
+    genCylinder(-0.10f, -0.125f, 0.0f, 0.085f, 0.45f,
                 6, 2, BONE_L_UPPER_LEG, mesh.vertices, mesh.indices);
-    // 左小腿：y [-0.85, -0.25]，半径 0.065
-    genCylinder(-0.11f, -0.55f, 0.0f, 0.065f, 0.60f,
+    // 左小腿：y [-0.85, -0.40]，半径 0.065
+    genCylinder(-0.11f, -0.625f, 0.0f, 0.065f, 0.45f,
                 6, 2, BONE_L_LOWER_LEG, mesh.vertices, mesh.indices);
 
     // ---- 右腿 ----
-    genCylinder(0.10f, -0.225f, 0.0f, 0.085f, 0.65f,
+    // 右大腿：y [-0.35, 0.10]，半径 0.085
+    genCylinder(0.10f, -0.125f, 0.0f, 0.085f, 0.45f,
                 6, 2, BONE_R_UPPER_LEG, mesh.vertices, mesh.indices);
-    genCylinder(0.11f, -0.55f, 0.0f, 0.065f, 0.60f,
+    // 右小腿：y [-0.85, -0.40]，半径 0.065
+    genCylinder(0.11f, -0.625f, 0.0f, 0.065f, 0.45f,
                 6, 2, BONE_R_LOWER_LEG, mesh.vertices, mesh.indices);
 
     // ---- SLERP 关节连接器（替代丑陋的关节球）----

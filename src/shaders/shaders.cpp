@@ -111,73 +111,91 @@ void main() {
         pos = rotateX(pos, nod);
         pos += j;
     }
-    else if (bone == 2 || bone == 4) {
-        float sign = (bone == 2) ? 1.0 : -1.0;
-        float angle = swingAmp * sign * sin(t);
-        float tuck = -jumpTuck * 0.3 * sign;
-        angle += tuck;
-        vec3 j = jointPos(bone);
-        pos -= j;
-        pos = rotateX(pos, angle);
-        norm = rotateX(norm, angle);
-        pos += j;
-        float bob = bodyBob * sin(t);
-        float sway = bodySway * cos(t);
-        pos.y += bob + jumpH;
-        pos.x += sway;
-    }
-    else if (bone == 3 || bone == 5) {
-        float sign = (bone == 3) ? 1.0 : -1.0;
+    else if (bone == 2 || bone == 3 || bone == 4 || bone == 5) {
+        // Unified arm skinning with smooth elbow blend
+        bool isLeft = (bone == 2 || bone == 3);
+        float sign = isLeft ? 1.0 : -1.0;
+        int shoulderBone = isLeft ? 2 : 4;
+        int elbowBone = isLeft ? 3 : 5;
+
         float shoulderAngle = swingAmp * sign * sin(t);
         float elbowAngle = elbowBend * sign * abs(sin(t));
         float tuck = -jumpTuck * 0.4 * sign;
         elbowAngle += tuck;
-        vec3 shoulder = jointPos(bone - 1);
-        vec3 elbow    = jointPos(bone);
-        vec3 rel = pos - shoulder;
-        rel = rotateX(rel, shoulderAngle);
+        shoulderAngle += -jumpTuck * 0.3 * sign;
+
+        vec3 shoulder = jointPos(shoulderBone);
+        vec3 elbow = jointPos(elbowBone);
+
+        // Blend weight based on Y position relative to elbow joint
+        float elbowY = elbow.y;  // 0.48
+        float blendHalf = 0.08;
+        float blend = smoothstep(elbowY - blendHalf, elbowY + blendHalf, inPos.y);
+        // blend=1.0 near shoulder (upper arm only), blend=0.0 near hand (full forearm)
+
+        // Upper arm transform (shoulder rotation only)
+        vec3 relU = pos - shoulder;
+        vec3 posU = shoulder + rotateX(relU, shoulderAngle);
+        vec3 normU = rotateX(norm, shoulderAngle);
+
+        // Forearm transform (shoulder + elbow rotation)
+        vec3 relF = pos - shoulder;
+        relF = rotateX(relF, shoulderAngle);
         vec3 rotatedElbow = rotateX(elbow - shoulder, shoulderAngle);
-        vec3 foreRel = rel - rotatedElbow;
+        vec3 foreRel = relF - rotatedElbow;
         foreRel = rotateX(foreRel, elbowAngle);
-        pos = shoulder + rotatedElbow + foreRel;
-        norm = rotateX(norm, shoulderAngle);
-        norm = rotateX(norm, elbowAngle);
+        vec3 posF = shoulder + rotatedElbow + foreRel;
+        vec3 normF = rotateX(rotateX(norm, shoulderAngle), elbowAngle);
+
+        // Blend between upper arm and forearm transforms
+        pos = mix(posF, posU, blend);
+        norm = mix(normF, normU, blend);
+
         float bob = bodyBob * sin(t);
         float sway = bodySway * cos(t);
         pos.y += bob + jumpH;
         pos.x += sway;
     }
-    else if (bone == 6 || bone == 8) {
-        float sign = (bone == 6) ? 1.0 : -1.0;
-        float angle = swingAmp * sign * sin(t);
-        float tuck = -jumpTuck * 0.4 * sign;
-        angle += tuck;
-        vec3 j = jointPos(bone);
-        pos -= j;
-        pos = rotateX(pos, angle);
-        norm = rotateX(norm, angle);
-        pos += j;
-        float bob = bodyBob * sin(t);
-        float sway = bodySway * cos(t);
-        pos.y += bob + jumpH;
-        pos.x += sway;
-    }
-    else if (bone == 7 || bone == 9) {
-        float sign = (bone == 7) ? 1.0 : -1.0;
+    else if (bone == 6 || bone == 7 || bone == 8 || bone == 9) {
+        // Unified leg skinning with smooth knee blend
+        bool isLeft = (bone == 6 || bone == 7);
+        float sign = isLeft ? 1.0 : -1.0;
+        int hipBone = isLeft ? 6 : 8;
+        int kneeBone = isLeft ? 7 : 9;
+
         float hipAngle = swingAmp * sign * sin(t);
         float kneeAngle = kneeBend * sign * (sin(t) * 0.5 + 0.5);
         float tuck = -jumpTuck * 0.5 * sign;
         kneeAngle += tuck;
-        vec3 hip  = jointPos(bone - 1);
-        vec3 knee = jointPos(bone);
-        vec3 rel = pos - hip;
-        rel = rotateX(rel, hipAngle);
+        hipAngle += -jumpTuck * 0.4 * sign;
+
+        vec3 hip = jointPos(hipBone);
+        vec3 knee = jointPos(kneeBone);
+
+        // Blend weight based on Y position relative to knee joint
+        float kneeY = knee.y;  // -0.40
+        float blendHalf = 0.08;
+        float blend = smoothstep(kneeY - blendHalf, kneeY + blendHalf, inPos.y);
+        // blend=1.0 above knee (upper leg only), blend=0.0 below knee (full lower leg)
+
+        // Upper leg transform (hip rotation only)
+        vec3 relU = pos - hip;
+        vec3 posU = hip + rotateX(relU, hipAngle);
+        vec3 normU = rotateX(norm, hipAngle);
+
+        // Lower leg transform (hip + knee rotation)
+        vec3 relL = pos - hip;
+        relL = rotateX(relL, hipAngle);
         vec3 rotatedKnee = rotateX(knee - hip, hipAngle);
-        vec3 legRel = rel - rotatedKnee;
+        vec3 legRel = relL - rotatedKnee;
         legRel = rotateX(legRel, kneeAngle);
-        pos = hip + rotatedKnee + legRel;
-        norm = rotateX(norm, hipAngle);
-        norm = rotateX(norm, kneeAngle);
+        vec3 posL = hip + rotatedKnee + legRel;
+        vec3 normL = rotateX(rotateX(norm, hipAngle), kneeAngle);
+
+        // Blend between upper leg and lower leg transforms
+        pos = mix(posL, posU, blend);
+        norm = mix(normL, normU, blend);
+
         float bob = bodyBob * sin(t);
         float sway = bodySway * cos(t);
         pos.y += bob + jumpH;
