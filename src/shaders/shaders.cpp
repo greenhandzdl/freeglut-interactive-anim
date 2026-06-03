@@ -136,9 +136,10 @@ void main() {
         vec3 elbow    = jointPos(bone);
         vec3 rel = pos - shoulder;
         rel = rotateX(rel, shoulderAngle);
-        vec3 foreRel = rel - (elbow - shoulder);
+        vec3 rotatedElbow = rotateX(elbow - shoulder, shoulderAngle);
+        vec3 foreRel = rel - rotatedElbow;
         foreRel = rotateX(foreRel, elbowAngle);
-        pos = shoulder + (elbow - shoulder) + foreRel;
+        pos = shoulder + rotatedElbow + foreRel;
         norm = rotateX(norm, shoulderAngle);
         norm = rotateX(norm, elbowAngle);
         float bob = bodyBob * sin(t);
@@ -171,9 +172,10 @@ void main() {
         vec3 knee = jointPos(bone);
         vec3 rel = pos - hip;
         rel = rotateX(rel, hipAngle);
-        vec3 legRel = rel - (knee - hip);
+        vec3 rotatedKnee = rotateX(knee - hip, hipAngle);
+        vec3 legRel = rel - rotatedKnee;
         legRel = rotateX(legRel, kneeAngle);
-        pos = hip + (knee - hip) + legRel;
+        pos = hip + rotatedKnee + legRel;
         norm = rotateX(norm, hipAngle);
         norm = rotateX(norm, kneeAngle);
         float bob = bodyBob * sin(t);
@@ -192,7 +194,8 @@ void main() {
     pos = antiClip(pos, bone);
 
     vPos   = pos;
-    vNorm  = normalize(norm);
+    float normLen = length(norm);
+    vNorm  = (normLen > 0.0001) ? (norm / normLen) : vec3(0.0, 1.0, 0.0);
     vTex   = inTexCoord;
     vBone  = bone;
 }
@@ -321,11 +324,15 @@ void main() {
     float w = gl_TessCoord.z;
 
     vec3 pos = bezierPoint(u, v, w);
-    vec3 norm = normalize(tcNorm[0] * u + tcNorm[1] * v + tcNorm[2] * w);
+    vec3 n_interp = tcNorm[0] * u + tcNorm[1] * v + tcNorm[2] * w;
+    float n_len = length(n_interp);
+    vec3 norm = (n_len > 0.0001) ? (n_interp / n_len) : tcNorm[0];
     vec2 tex = tcTex[0] * u + tcTex[1] * v + tcTex[2] * w;
 
     fPos  = (uModel * vec4(pos, 1.0)).xyz;
-    fNorm = normalize((uModel * vec4(norm, 0.0)).xyz);
+    vec3 transformed_norm = (uModel * vec4(norm, 0.0)).xyz;
+    float tn_len = length(transformed_norm);
+    fNorm = (tn_len > 0.0001) ? (transformed_norm / tn_len) : vec3(0.0, 1.0, 0.0);
     fTex  = tex;
     fBone = tcBone[0];
 
@@ -354,12 +361,20 @@ uniform vec3 uCamPos;
 uniform vec3 uColors[10];
 
 void main() {
-    vec3 N = normalize(fNorm);
-    vec3 L = uLightPos - fPos;
-    float dist = length(L);
-    L /= dist;
-    vec3 V = normalize(uCamPos - fPos);
-    vec3 H = normalize(L + V);
+    float fNormLen = length(fNorm);
+    vec3 N = (fNormLen > 0.0001) ? (fNorm / fNormLen) : vec3(0.0, 1.0, 0.0);
+
+    vec3 L_orig = uLightPos - fPos;
+    float dist = length(L_orig);
+    vec3 L = (dist > 0.0001) ? (L_orig / dist) : vec3(0.0, 1.0, 0.0);
+
+    vec3 camVec = uCamPos - fPos;
+    float camDist = length(camVec);
+    vec3 V = (camDist > 0.0001) ? (camVec / camDist) : vec3(0.0, 1.0, 0.0);
+
+    vec3 hVec = L + V;
+    float hLen = length(hVec);
+    vec3 H = (hLen > 0.0001) ? (hVec / hLen) : vec3(0.0, 1.0, 0.0);
 
     float atten = 1.0 / (1.0 + (dist * dist) / (uLightRadius * uLightRadius));
     atten = clamp(atten, 0.0, 1.0);
