@@ -1,269 +1,250 @@
 /**
  * @file main.cpp
- * @brief FreeGLUT Template Application
+ * @brief 应用阶段：窗口创建、输入回调、主循环
  *
- * A basic FreeGLUT template demonstrating cross-platform OpenGL setup.
- * Works on macOS (with XQuartz) and Linux.
+ * 将复杂的图形管线拆分到独立模块：
+ *   math/    — Vec3, Mat4 数学工具
+ *   geometry/— 网格生成（圆柱/球体/台体/SLERP 关节连接器）
+ *   shaders/ — GLSL 着色器源码
+ *   render/  — GL 初始化、编译/链接、每帧更新与绘制
  */
-
 #include "common.h"
+#include "render/render.h"
+#include "math/math.h"
+
 #include <iostream>
-#include <cstdlib>
+#include <algorithm>
+#include <cstring>
 
-// Global variables for animation
-static float g_rotation = 0.0f;
-static bool g_is_rotating = true;
-static bool g_first_display = true;
-static int g_window_id = -1;
+#include <GL/glew.h>
+#include <GL/freeglut.h>
 
-/**
- * @brief Cleanup function
- */
-void cleanup() {
-    if (g_window_id > 0) {
-        glutDestroyWindow(g_window_id);
-    }
+// ============================================================
+// 窗口设置
+// ============================================================
+static const int WIN_W = 1024;
+static const int WIN_H = 768;
+static const char* WIN_TITLE = "OpenGL 人物演示 — 顶点动画 + 曲面细分";
+
+// ============================================================
+// FreeGLUT 回调
+// ============================================================
+static void displayCallback() {
+    renderScene();
 }
 
-/**
- * @brief Display callback - renders the scene
- */
-void displayCallback()
-{
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glLoadIdentity();
+static void idleCallback() {
+    static int lastTime = 0;
+    int now = glutGet(GLUT_ELAPSED_TIME);
+    if (lastTime == 0) lastTime = now;
+    float dt = (now - lastTime) / 1000.0f;
+    if (dt > 0.05f) dt = 0.05f;
+    lastTime = now;
 
-    // Camera setup
-    glTranslatef(0.0f, 0.0f, -5.0f);
-    glRotatef(g_rotation, 0.0f, 1.0f, 0.0f);
-    glRotatef(g_rotation * 0.5f, 1.0f, 0.0f, 0.0f);
-
-    // Draw a colorful cube
-    glBegin(GL_QUADS);
-
-    // Front face - red
-    glColor3f(1.0f, 0.0f, 0.0f);
-    glVertex3f(-1.0f, -1.0f, 1.0f);
-    glVertex3f(1.0f, -1.0f, 1.0f);
-    glVertex3f(1.0f, 1.0f, 1.0f);
-    glVertex3f(-1.0f, 1.0f, 1.0f);
-
-    // Back face - green
-    glColor3f(0.0f, 1.0f, 0.0f);
-    glVertex3f(-1.0f, -1.0f, -1.0f);
-    glVertex3f(-1.0f, 1.0f, -1.0f);
-    glVertex3f(1.0f, 1.0f, -1.0f);
-    glVertex3f(1.0f, -1.0f, -1.0f);
-
-    // Top face - blue
-    glColor3f(0.0f, 0.0f, 1.0f);
-    glVertex3f(-1.0f, 1.0f, -1.0f);
-    glVertex3f(-1.0f, 1.0f, 1.0f);
-    glVertex3f(1.0f, 1.0f, 1.0f);
-    glVertex3f(1.0f, 1.0f, -1.0f);
-
-    // Bottom face - yellow
-    glColor3f(1.0f, 1.0f, 0.0f);
-    glVertex3f(-1.0f, -1.0f, -1.0f);
-    glVertex3f(1.0f, -1.0f, -1.0f);
-    glVertex3f(1.0f, -1.0f, 1.0f);
-    glVertex3f(-1.0f, -1.0f, 1.0f);
-
-    // Right face - cyan
-    glColor3f(0.0f, 1.0f, 1.0f);
-    glVertex3f(1.0f, -1.0f, -1.0f);
-    glVertex3f(1.0f, 1.0f, -1.0f);
-    glVertex3f(1.0f, 1.0f, 1.0f);
-    glVertex3f(1.0f, -1.0f, 1.0f);
-
-    // Left face - magenta
-    glColor3f(1.0f, 0.0f, 1.0f);
-    glVertex3f(-1.0f, -1.0f, -1.0f);
-    glVertex3f(-1.0f, -1.0f, 1.0f);
-    glVertex3f(-1.0f, 1.0f, 1.0f);
-    glVertex3f(-1.0f, 1.0f, -1.0f);
-
-    glEnd();
-
-    glutSwapBuffers();
-
-    // Print OpenGL info on first display (when context is valid)
-    if (g_first_display)
-    {
-        g_first_display = false;
-        std::cout << std::endl;
-        std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
-        std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
-        std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
-        std::cout << "Vendor: " << glGetString(GL_VENDOR) << std::endl;
-        std::cout << std::endl;
-    }
-}
-
-/**
- * @brief Idle callback - updates animation state
- */
-void idleCallback()
-{
-    if (g_is_rotating)
-    {
-        g_rotation += 1.0f;
-        if (g_rotation >= 360.0f)
-        {
-            g_rotation = 0.0f;
-        }
-    }
-
+    updateAnimation(dt);
     glutPostRedisplay();
 }
 
-/**
- * @brief Keyboard input handler
- */
-void keyboardCallback(unsigned char key, int x, int y)
-{
-    (void)x;
-    (void)y;
+static void keyboardCallback(unsigned char key, int x, int y) {
+    (void)x; (void)y;
 
-    switch (key)
-    {
-        case 27: // ESC
+    switch (key) {
+        case 27:
 #ifdef USE_FREEGLUT
             glutLeaveMainLoop();
 #else
-            // macOS native GLUT doesn't have glutLeaveMainLoop
-            std::cout << "Exiting..." << std::endl;
-            cleanup();
-            std::exit(0);
+            exit(0);
 #endif
             break;
-        case 'r':
-        case 'R':
-            g_is_rotating = !g_is_rotating;
-            std::cout << "Rotation: " << (g_is_rotating ? "ON" : "OFF") << std::endl;
-            break;
+
         case ' ':
-            g_rotation = 0.0f;
-            std::cout << "Rotation reset" << std::endl;
+            if (g.jumpPhase <= 0.0f || g.jumpPhase >= 1.0f) {
+                g.jumping = true;
+                std::cout << "[跳跃] 起跳！" << std::endl;
+            }
+            break;
+
+        case '+':
+        case '=':
+            g.tessLevel = std::min(g.tessLevel + 0.5f, 12.0f);
+            std::cout << "[细分级别] " << g.tessLevel << std::endl;
+            break;
+
+        case '-':
+        case '_':
+            g.tessLevel = std::max(g.tessLevel - 0.5f, 1.0f);
+            std::cout << "[细分级别] " << g.tessLevel << std::endl;
+            break;
+
+        default:
+            break;
+    }
+
+    g.keys[key] = true;
+}
+
+static void keyboardUpCallback(unsigned char key, int x, int y) {
+    (void)x; (void)y;
+    g.keys[key] = false;
+
+    if (key == ' ') {
+        g.jumping = false;
+    }
+}
+
+static void specialCallback(int key, int x, int y) {
+    (void)x; (void)y;
+    switch (key) {
+        case GLUT_KEY_LEFT:
+            g.cameraAngle -= 0.05f;
+            break;
+        case GLUT_KEY_RIGHT:
+            g.cameraAngle += 0.05f;
+            break;
+        case GLUT_KEY_UP:
+            g.cameraHeight = std::min(g.cameraHeight + 0.2f, 5.0f);
+            break;
+        case GLUT_KEY_DOWN:
+            g.cameraHeight = std::max(g.cameraHeight - 0.2f, 1.0f);
             break;
     }
 }
 
-/**
- * @brief Window reshape callback
- */
-void reshapeCallback(int width, int height)
-{
-    if (height == 0)
-    {
-        height = 1;
+static void reshapeCallback(int width, int height) {
+    if (height == 0) height = 1;
+    glViewport(0, 0, width, height);
+}
+
+static void visibilityCallback(int visible) {
+    if (visible == GLUT_VISIBLE) {
+        memset(g.keys, 0, sizeof(g.keys));
     }
-
-    glViewport(0, 0, static_cast<GLsizei>(width), static_cast<GLsizei>(height));
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(45.0f, static_cast<GLfloat>(width) / static_cast<GLfloat>(height), 0.1f, 100.0f);
-    glMatrixMode(GL_MODELVIEW);
 }
 
-/**
- * @brief Initialize OpenGL state
- */
-void initGL()
-{
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-    glClearDepth(1.0f);
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
-    glShadeModel(GL_SMOOTH);
-    glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+static void mouseCallback(int button, int state, int x, int y) {
+    if (button == GLUT_LEFT_BUTTON) {
+        if (state == GLUT_DOWN) {
+            g.mouseDragging = true;
+            g.mouseLastX = x;
+            g.mouseLastY = y;
+        } else {
+            g.mouseDragging = false;
+        }
+    }
+    if (button == 3) {
+        g.cameraDist = std::max(g.cameraDist - 0.3f, 2.0f);
+    }
+    if (button == 4) {
+        g.cameraDist = std::min(g.cameraDist + 0.3f, 15.0f);
+    }
 }
 
-/**
- * @brief Print usage information
- */
-void printInfo()
-{
-    std::cout << "=====================================" << std::endl;
-    std::cout << " FreeGLUT Template Application" << std::endl;
-    std::cout << " Version: " << APP_VERSION << std::endl;
-    std::cout << "=====================================" << std::endl;
-    std::cout << " Controls:" << std::endl;
-    std::cout << " R     - Toggle rotation" << std::endl;
-    std::cout << " SPACE - Reset rotation" << std::endl;
-    std::cout << " ESC   - Exit" << std::endl;
-    std::cout << "=====================================" << std::endl;
+static void mouseMotionCallback(int x, int y) {
+    if (g.mouseDragging) {
+        int dx = x - g.mouseLastX;
+        int dy = y - g.mouseLastY;
+        g.cameraAngle -= dx * 0.008f;
+        g.cameraHeight = std::max(1.0f, std::min(5.0f, g.cameraHeight + dy * 0.01f));
+        g.mouseLastX = x;
+        g.mouseLastY = y;
+    }
 }
 
-/**
- * @brief Main entry point
- */
-int main(int argc, char** argv)
-{
-    // Initialize GLUT first
+static void printInfo() {
+    std::cout << "================================================" << std::endl;
+    std::cout << " OpenGL 人物演示 — 顶点动画 + 曲面细分" << std::endl;
+    std::cout << "================================================" << std::endl;
+    std::cout << "  操作说明:" << std::endl;
+    std::cout << "  W/A/S/D  — 移动人物（相对于摄像机方向）" << std::endl;
+    std::cout << "  SPACE    — 跳跃" << std::endl;
+    std::cout << "  鼠标左键拖拽 — 旋转/升降摄像机" << std::endl;
+    std::cout << "  鼠标滚轮 — 缩放摄像机" << std::endl;
+    std::cout << "  +/-      — 增加/减少细分级别" << std::endl;
+    std::cout << "  ESC      — 退出" << std::endl;
+    std::cout << "------------------------------------------------" << std::endl;
+    std::cout << "  设计说明:" << std::endl;
+    std::cout << "  - 人物骨架由粗圆柱/台体（6边形截面）+ SLERP 关节连接器构成" << std::endl;
+    std::cout << "  - 顶点着色器负责行走动画（摆臂/摆腿/弹跳）" << std::endl;
+    std::cout << "  - 曲面细分阶段使用 PN 三角形使表面光滑" << std::endl;
+    std::cout << "  - SLERP 关节连接器在几何阶段生成，替代关节球平滑过渡" << std::endl;
+    std::cout << "  - 点光源绕人物轨道运动" << std::endl;
+    std::cout << "================================================" << std::endl;
+}
+
+// ============================================================
+// 主函数
+// ============================================================
+int main(int argc, char** argv) {
     glutInit(&argc, argv);
 
 #ifdef USE_FREEGLUT
-    // FreeGLUT specific: allow main loop to return
     glutSetOption(GLUT_ACTION_ON_WINDOW_CLOSE, GLUT_ACTION_GLUTMAINLOOP_RETURNS);
 #endif
 
-    // Print info
-    printInfo();
+    glutInitContextVersion(4, 1);
+    glutInitContextProfile(GLUT_CORE_PROFILE);
+#ifdef USE_FREEGLUT
+    glutInitContextFlags(GLUT_DEBUG);
+#endif
 
-    // Set display mode
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH);
+    glutInitWindowSize(WIN_W, WIN_H);
+    glutInitWindowPosition(100, 50);
+    int win = glutCreateWindow(WIN_TITLE);
 
-    // Set window size and position
-    glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
-    glutInitWindowPosition(100, 100);
-
-    // Create window
-    g_window_id = glutCreateWindow(WINDOW_TITLE);
-
-    if (g_window_id < 1) {
-        std::cerr << "Error: Failed to create GLUT window" << std::endl;
+    if (win < 1) {
+        std::cerr << "无法创建窗口！" << std::endl;
         return 1;
     }
 
-    std::cout << "Window created successfully (ID: " << g_window_id << ")" << std::endl;
+    glewExperimental = GL_TRUE;
+    GLenum err = glewInit();
+    if (err != GLEW_OK) {
+        std::cerr << "GLEW 初始化失败: " << glewGetErrorString(err) << std::endl;
+        return 1;
+    }
 
-#ifdef USE_GLEW
- // Initialize GLEW (Note: May have issues on macOS with FreeGLUT/X11)
- std::cout << "Attempting GLEW initialization..." << std::endl;
- glewExperimental = GL_TRUE;
- GLenum err = glewInit();
- if (err == GLEW_OK) {
-     std::cout << "GLEW initialized successfully!" << std::endl;
-     std::cout << "  GLEW Version: " << glewGetString(GLEW_VERSION) << std::endl;
- } else {
-     std::cerr << "Warning: GLEW initialization failed: " << glewGetErrorString(err) << std::endl;
-     std::cerr << "Continuing with basic OpenGL..." << std::endl;
- }
-#else
- std::cout << "Building without GLEW support" << std::endl;
-#endif
+    if (!GLEW_ARB_tessellation_shader) {
+        std::cerr << "错误：不支持曲面细分着色器 (ARB_tessellation_shader)！" << std::endl;
+        return 1;
+    }
 
+    std::cout << "OpenGL  " << glGetString(GL_VERSION) << std::endl;
+    std::cout << "GLSL    " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
+    std::cout << "渲染器  " << glGetString(GL_RENDERER) << std::endl;
+    std::cout << std::endl;
 
-    // Initialize OpenGL
     initGL();
+    initCharacter();
+    initFloor();
+    initPointLightMarker();
+    initShaders();
 
-    // Register callbacks
     glutDisplayFunc(displayCallback);
     glutIdleFunc(idleCallback);
     glutKeyboardFunc(keyboardCallback);
+    glutKeyboardUpFunc(keyboardUpCallback);
+    glutSpecialFunc(specialCallback);
     glutReshapeFunc(reshapeCallback);
+    glutVisibilityFunc(visibilityCallback);
+    glutMouseFunc(mouseCallback);
+    glutMotionFunc(mouseMotionCallback);
+    glutIgnoreKeyRepeat(1);
 
-    // Register cleanup
-    atexit(cleanup);
+    printInfo();
 
-    std::cout << "Display: " << (getenv("DISPLAY") ? getenv("DISPLAY") : "not set") << std::endl;
-    std::cout << std::endl;
-
-    // Enter main loop
     glutMainLoop();
 
-    std::cout << "Main loop ended" << std::endl;
+    glDeleteVertexArrays(1, &g.charVAO);
+    glDeleteBuffers(1, &g.charVBO);
+    glDeleteBuffers(1, &g.charEBO);
+    glDeleteVertexArrays(1, &g.floorVAO);
+    glDeleteBuffers(1, &g.floorVBO);
+    glDeleteBuffers(1, &g.floorEBO);
+    glDeleteVertexArrays(1, &g.pointVAO);
+    glDeleteBuffers(1, &g.pointVBO);
+    glDeleteProgram(g.charProgram);
+    glDeleteProgram(g.floorProgram);
 
     return 0;
 }

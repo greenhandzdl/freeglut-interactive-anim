@@ -37,12 +37,12 @@
 #endif
 
 // Common macros and utilities
-#define APP_NAME "FreeGLUT + GLEW Template"
+#define APP_NAME "OpenGL 人物演示"
 #define APP_VERSION "1.0.0"
 
 // Window defaults
-#define WINDOW_WIDTH 800
-#define WINDOW_HEIGHT 600
-#define WINDOW_TITLE "FreeGLUT + GLEW Template Application"
+#define WINDOW_WIDTH 1024
+#define WINDOW_HEIGHT 768
+#define WINDOW_TITLE "OpenGL 人物演示 — 顶点动画 + 曲面细分"
 
 #endif // FREEGLUT_TEMPLATE_COMMON_H

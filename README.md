@@ -1,98 +1,62 @@
-# FreeGLUT/GLUT + GLEW CMake Template
+# OpenGL 人物演示 — 顶点动画 + 曲面细分
 
-Cross-platform CMake template for OpenGL applications. Uses native GLUT on macOS, FreeGLUT on Linux.
+FreeGLUT + GLEW + OpenGL 4.1 角色演示程序。
 
-## Prerequisites
+## 项目结构
 
-**macOS:**
-```bash
-brew install glew cmake
 ```
-Note: Uses native GLUT framework - no additional installation needed.
-
-**Linux (Ubuntu/Debian):**
-```bash
-sudo apt-get install freeglut3-dev libglew-dev cmake build-essential
+src/
+├── common.h               # 图形库导入（GLUT/GLEW）
+├── main.cpp               # 应用阶段：窗口创建、输入回调、主循环
+├── math/
+│   └── math.h             # Vec3、Mat4、PI 常量
+├── geometry/
+│   ├── geometry.h         # 顶点结构、BoneId、网格生成声明
+│   └── geometry.cpp       # 圆柱/台体/球体/SLERP 关节连接器 → 人物 & 地面
+├── shaders/
+│   ├── shaders.h          # 着色器源码声明
+│   └── shaders.cpp        # VS/TCS/TES/FS 实现
+└── render/
+    ├── render.h           # GlobalState、初始化、更新、渲染声明
+    └── render.cpp         # GL 初始化、着色器编译/链接、动画更新、场景绘制
 ```
 
-**Linux (Fedora/RHEL):**
-```bash
-sudo dnf install freeglut-devel glew-devel cmake gcc-c++
-```
+按图形管线阶段拆分：**数学 → 几何（网格生成）→ 着色器 → 渲染 → 应用（main.cpp）**。
 
-## Build
+## 特性
+
+- **顶点着色器动画** — 10 骨骼角色行走/跳跃，肩膀→肘、髋→膝两段式旋转
+- **PN 三角形曲面细分** — 贝塞尔三角面片使粗网格（6 边形截面）光滑呈现人形
+- **SLERP 关节连接器** — 几何阶段生成平滑过渡网格替代关节球，随父骨旋转覆盖空隙
+- **Gooch 光照 + 玻璃质感** — 冷暖色调映射 + 菲涅尔边缘光 + Blinn-Phong 高光（64 次幂）
+- **点光源** — 可配置位置/颜色/衰减半径，绕人物轨道运动
+- **防穿插** — 手臂推离躯干胶囊体、双腿不交叉
+
+## 操作
+
+| 按键 | 功能 |
+|------|------|
+| WASD | 移动人物（相对于摄像机方向） |
+| Space | 跳跃 |
+| 鼠标左键拖拽 | 旋转/俯仰摄像机 |
+| 鼠标滚轮 | 缩放摄像机 |
+| +/- | 增加/减少细分级别（1~12） |
+| ESC | 退出 |
+
+## 构建
 
 ```bash
 mkdir build && cd build
 cmake ..
 cmake --build .
+./output/PersonDemo
 ```
 
-Or use the script:
-```bash
-./scripts/build.sh
-```
+**依赖：** Linux 需安装 `freeglut3-dev libglew-dev cmake build-essential`，macOS 需 `brew install glew cmake`。
 
-## Run
+## 技术要点
 
-```bash
-./output/FreeGLUT_Template
-```
-
-## Clean
-
-```bash
-cmake --build build --target clean-project
-```
-
-Removes `build/`, `output/`, and generated scripts.
-
-## Controls
-
-- **R** - Toggle rotation
-- **SPACE** - Reset rotation
-- **ESC** - Exit
-
-## Platform Configuration
-
-**macOS:** Uses native GLUT framework by default. Stable with GLEW support. OpenGL 2.1.
-
-**Linux:** Uses FreeGLUT. Full GLEW support.
-
-## Why NOT XQuartz on macOS?
-
-**Default configuration uses native GLUT because:**
-
-1. **Stability:** Native GLUT works reliably with GLEW; FreeGLUT via XQuartz causes segmentation faults
-2. **No Dependencies:** No need to install XQuartz/X11
-3. **Better Performance:** Uses Metal backend instead of X11 translation layer
-4. **Native Integration:** Direct macOS framework, better compatibility
-
-**XQuartz is optional:** Only needed if you specifically require X11 features:
-```bash
-cmake -DUSE_XQUARTZ=ON ..
-```
-
-## CMake Options
-
-```bash
-# Use FreeGLUT instead of native GLUT (macOS)
-cmake -DUSE_FREEGLUT=ON ..
-
-# Debug build
-cmake -DCMAKE_BUILD_TYPE=Debug ..
-```
-
-## Why FreeGLUT/GLUT?
-
-Recommended for:
-- Learning OpenGL basics
-- Traditional OpenGL (fixed pipeline)
-- Educational purposes
-- Simple, stable windowing
-
-## Related
-
-- GLFW template for modern OpenGL
-- FreeGLUT: http://freeglut.sourceforge.net/
-- GLEW: http://glew.sourceforge.net/
+- Core Profile 4.1，渲染管线：VS → TCS（PN 控制点） → TES（贝塞尔求值） → FS（逐像素）
+- 顶点属性：位置(0)、法线(1)、纹理(2)、骨骼ID(3)
+- 骨骼颜色 20% 叠加，透明混合（Alpha 0.75~1.0）
+- 反伽马校正输出（pow(1/2.2)）

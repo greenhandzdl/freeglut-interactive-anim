@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(FreeGLUT_Template VERSION 1.0.0 LANGUAGES C CXX)
+project(PersonDemo VERSION 1.0.0 LANGUAGES C CXX)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
@@ -29,7 +29,6 @@ if(IS_MACOS)
 else()
     option(USE_FREEGLUT "Use FreeGLUT instead of system GLUT" ON)
 endif()
-option(BUILD_EXAMPLES "Build example programs" ON)
 option(USE_XQUARTZ "Use XQuartz/X11 instead of native macOS FreeGLUT" OFF)
 
 # ============================================================================
@@ -182,16 +181,23 @@ endif()
 # ============================================================================
 set(HEADER_FILES
     ${CMAKE_SOURCE_DIR}/src/common.h
+    ${CMAKE_SOURCE_DIR}/src/math/math.h
+    ${CMAKE_SOURCE_DIR}/src/geometry/geometry.h
+    ${CMAKE_SOURCE_DIR}/src/shaders/shaders.h
+    ${CMAKE_SOURCE_DIR}/src/render/render.h
 )
 
 set(SOURCE_FILES
     ${CMAKE_SOURCE_DIR}/src/main.cpp
+    ${CMAKE_SOURCE_DIR}/src/geometry/geometry.cpp
+    ${CMAKE_SOURCE_DIR}/src/shaders/shaders.cpp
+    ${CMAKE_SOURCE_DIR}/src/render/render.cpp
 )
 
 # ============================================================================
 # Executable
 # ============================================================================
-set(TARGET_NAME "FreeGLUT_Template")
+set(TARGET_NAME "PersonDemo")
 
 add_executable(${TARGET_NAME} ${SOURCE_FILES} ${HEADER_FILES})
 
@@ -235,13 +241,6 @@ set_target_properties(${TARGET_NAME} PROPERTIES
     OUTPUT_NAME ${TARGET_NAME}
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/output
 )
-
-# ============================================================================
-# Examples (Optional)
-# ============================================================================
-if(BUILD_EXAMPLES)
-    add_subdirectory(examples)
-endif()
 
 # ============================================================================
 # Generate Scripts from Templates
