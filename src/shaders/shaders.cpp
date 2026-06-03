@@ -4,7 +4,7 @@
  */
 #include "shaders.h"
 
-// ---- 顶点着色器：人物动画 ----
+// ---- 顶点着色器：人物动画（带层系统和状态机）----
 const char* VS_SOURCE = R"glsl(
 #version 400 core
 #define PI 3.14159265358979323846
@@ -22,6 +22,16 @@ uniform float uTime;
 uniform float uJumpPhase;
 uniform vec2  uMoveDir;
 uniform float uMoveSpeed;
+uniform float uWavePhase;
+uniform float uWaveWeight;
+
+// 骨骼组到骨骼ID的映射
+// Group 0 (ROOT): bone 0, 1
+// Group 1 (HEAD): bone 1
+// Group 2 (LEFT_ARM): bone 2, 3
+// Group 3 (RIGHT_ARM): bone 4, 5
+// Group 4 (LEFT_LEG): bone 6, 7
+// Group 5 (RIGHT_LEG): bone 8, 9
 
 vec3 jointPos(int bone) {
     switch (bone) {
@@ -39,10 +49,46 @@ vec3 jointPos(int bone) {
     }
 }
 
+int getBoneGroup(int bone) {
+    if (bone == 0) return 0;      // ROOT
+    if (bone == 1) return 1;      // HEAD
+    if (bone == 2 || bone == 3) return 2;  // LEFT_ARM
+    if (bone == 4 || bone == 5) return 3;  // RIGHT_ARM
+    if (bone == 6 || bone == 7) return 4;  // LEFT_LEG
+    if (bone == 8 || bone == 9) return 5;  // RIGHT_LEG
+    return 0;
+}
+
 vec3 rotateX(vec3 p, float angle) {
     float c = cos(angle);
     float s = sin(angle);
     return vec3(p.x, p.y * c - p.z * s, p.y * s + p.z * c);
+}
+
+vec3 rotateY(vec3 p, float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+    return vec3(p.x * c + p.z * s, p.y, -p.x * s + p.z * c);
+}
+
+vec3 rotateZ(vec3 p, float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+    return vec3(p.x * c - p.y * s, p.x * s + p.y * c, p.z);
+}
+
+vec3 rotateAroundAxis(vec3 p, vec3 axis, float angle) {
+    // Rodrigues旋转公式
+    axis = normalize(axis);
+    float c = cos(angle);
+    float s = sin(angle);
+    float t = 1.0 - c;
+    
+    vec3 result = p * c 
+                + cross(axis, p) * s 
+                + axis * dot(axis, p) * t;
+    
+    return result;
 }
 
 vec3 antiClip(vec3 pos, int bone) {
@@ -73,10 +119,13 @@ void main() {
     vec3 pos = inPos;
     vec3 norm = inNormal;
     int bone = inBoneId;
+    int group = getBoneGroup(bone);
 
     float walkFreq = 3.0;
     float t = uTime * walkFreq;
     float speedFactor = clamp(uMoveSpeed, 0.0, 1.0);
+    
+    // 基础参数
     float swingAmp = 1.0 * speedFactor;
     float kneeBend = 0.7 * speedFactor;
     float elbowBend = 0.4 * speedFactor;
@@ -84,6 +133,7 @@ void main() {
     float bodySway = 0.05 * speedFactor;
     float hipTwist = 0.12 * speedFactor;
 
+    // 跳跃参数
     float jumpH = 0.0;
     float jumpTuck = 0.0;
     float jumpTwist = 0.0;
@@ -94,6 +144,7 @@ void main() {
         jumpTwist = 0.3 * sin(phase * 2.0);
     }
 
+    // ===== 根节点和躯干 =====
     if (bone == 0) {
         float bob = bodyBob * sin(t);
         float sway = bodySway * cos(t);
@@ -111,18 +162,54 @@ void main() {
         pos = rotateX(pos, nod);
         pos += j;
     }
+    
+    // ===== 手臂处理（带层混合）=====
     else if (bone == 2 || bone == 3 || bone == 4 || bone == 5) {
-        // Unified arm skinning with smooth elbow blend
         bool isLeft = (bone == 2 || bone == 3);
         float sign = isLeft ? 1.0 : -1.0;
         int shoulderBone = isLeft ? 2 : 4;
         int elbowBone = isLeft ? 3 : 5;
 
-        float shoulderAngle = swingAmp * sign * sin(t);
-        float elbowAngle = elbowBend * sign * abs(sin(t));
-        float tuck = -jumpTuck * 0.4 * sign;
-        elbowAngle += tuck;
-        shoulderAngle += -jumpTuck * 0.3 * sign;
+        // 行走层
+        float walkShoulderAngle = swingAmp * sign * sin(t);
+        float walkElbowAngle = elbowBend * sign * abs(sin(t));
+        
+        // 跳跃层
+        float jumpShoulderAngle = -jumpTuck * 0.3 * sign;
+        float jumpElbowAngle = -jumpTuck * 0.4 * sign;
+        
+        // 挥手层（仅右臂）- 打招呼挥手：大臂前举，小臂左右摆动
+        float waveShoulderAngle = 0.0;
+        float waveElbowAngle = 0.0;
+        
+        if (!isLeft && uWaveWeight > 0.0) {
+            float waveT = uWavePhase * 8.0;  // 快速挥手频率
+            
+            // 大臂前举固定角度（约70度向前，负值表示向前）
+            waveShoulderAngle = -1.2;
+            
+            // 小臂挥动：需要计算正交方向
+            // 大臂方向向量（前举后的大臂方向）
+            vec3 upperArmDir = vec3(0.0, cos(waveShoulderAngle), sin(waveShoulderAngle));
+            // 垂直向上的轴
+            vec3 upAxis = vec3(0.0, 1.0, 0.0);
+            // 计算正交轴：cross(upperArmDir, upAxis) 得到水平方向的轴
+            vec3 waveAxis = normalize(cross(upperArmDir, upAxis));
+            
+            // 使用绕正交轴的旋转来模拟小臂挥动
+            // 这里我们用Z轴旋转来近似（因为waveAxis接近X轴方向）
+            waveElbowAngle = 0.8 * sin(waveT);  // 增大幅度到0.8
+        }
+        
+        // 最终角度计算（优先级：挥手 > 跳跃 > 行走）
+        float finalShoulderAngle = walkShoulderAngle + jumpShoulderAngle;
+        float finalElbowAngle = walkElbowAngle + jumpElbowAngle;
+        
+        if (!isLeft && uWaveWeight > 0.0) {
+            // 挥手时完全覆盖其他动画
+            finalShoulderAngle = waveShoulderAngle;
+            finalElbowAngle = waveElbowAngle;
+        }
 
         vec3 shoulder = jointPos(shoulderBone);
         vec3 elbow = jointPos(elbowBone);
@@ -131,21 +218,33 @@ void main() {
         float elbowY = elbow.y;  // 0.48
         float blendHalf = 0.08;
         float blend = smoothstep(elbowY - blendHalf, elbowY + blendHalf, inPos.y);
-        // blend=1.0 near shoulder (upper arm only), blend=0.0 near hand (full forearm)
 
         // Upper arm transform (shoulder rotation only)
         vec3 relU = pos - shoulder;
-        vec3 posU = shoulder + rotateX(relU, shoulderAngle);
-        vec3 normU = rotateX(norm, shoulderAngle);
+        vec3 posU = shoulder + rotateX(relU, finalShoulderAngle);
+        vec3 normU = rotateX(norm, finalShoulderAngle);
 
         // Forearm transform (shoulder + elbow rotation)
         vec3 relF = pos - shoulder;
-        relF = rotateX(relF, shoulderAngle);
-        vec3 rotatedElbow = rotateX(elbow - shoulder, shoulderAngle);
+        relF = rotateX(relF, finalShoulderAngle);
+        vec3 rotatedElbow = rotateX(elbow - shoulder, finalShoulderAngle);
         vec3 foreRel = relF - rotatedElbow;
-        foreRel = rotateX(foreRel, elbowAngle);
+        
+        // 如果是挥手状态，使用正交轴旋转
+        vec3 normF;
+        if (!isLeft && uWaveWeight > 0.0) {
+            vec3 upperArmDir = vec3(0.0, cos(finalShoulderAngle), sin(finalShoulderAngle));
+            vec3 upAxis = vec3(0.0, 1.0, 0.0);
+            vec3 waveAxis = normalize(cross(upperArmDir, upAxis));
+            foreRel = rotateAroundAxis(foreRel, waveAxis, finalElbowAngle);
+            vec3 transformed_norm = rotateX(norm, finalShoulderAngle);
+            normF = rotateAroundAxis(transformed_norm, waveAxis, finalElbowAngle);
+        } else {
+            foreRel = rotateX(foreRel, finalElbowAngle);
+            normF = rotateX(rotateX(norm, finalShoulderAngle), finalElbowAngle);
+        }
+        
         vec3 posF = shoulder + rotatedElbow + foreRel;
-        vec3 normF = rotateX(rotateX(norm, shoulderAngle), elbowAngle);
 
         // Blend between upper arm and forearm transforms
         pos = mix(posF, posU, blend);
@@ -156,18 +255,32 @@ void main() {
         pos.y += bob + jumpH;
         pos.x += sway;
     }
+    
+    // ===== 腿部处理（带层混合）=====
     else if (bone == 6 || bone == 7 || bone == 8 || bone == 9) {
-        // Unified leg skinning with smooth knee blend
         bool isLeft = (bone == 6 || bone == 7);
         float sign = isLeft ? 1.0 : -1.0;
         int hipBone = isLeft ? 6 : 8;
         int kneeBone = isLeft ? 7 : 9;
 
-        float hipAngle = swingAmp * sign * sin(t);
-        float kneeAngle = kneeBend * sign * (sin(t) * 0.5 + 0.5);
-        float tuck = -jumpTuck * 0.5 * sign;
-        kneeAngle += tuck;
-        hipAngle += -jumpTuck * 0.4 * sign;
+        // 行走层
+        float walkHipAngle = swingAmp * sign * sin(t);
+        float walkKneeAngle = kneeBend * sign * (sin(t) * 0.5 + 0.5);
+        
+        // 跳跃层
+        float jumpHipAngle = -jumpTuck * 0.4 * sign;
+        float jumpKneeAngle = -jumpTuck * 0.5 * sign;
+        
+        // 最终角度（行走+跳跃，优先级由跳跃主导）
+        float finalHipAngle = walkHipAngle;
+        float finalKneeAngle = walkKneeAngle;
+        
+        if (uJumpPhase > 0.0 && uJumpPhase < 1.0) {
+            // 跳跃时完全使用跳跃姿态
+            float jumpBlend = sin(uJumpPhase * PI);
+            finalHipAngle = mix(walkHipAngle, jumpHipAngle, jumpBlend);
+            finalKneeAngle = mix(walkKneeAngle, jumpKneeAngle, jumpBlend);
+        }
 
         vec3 hip = jointPos(hipBone);
         vec3 knee = jointPos(kneeBone);
@@ -176,21 +289,20 @@ void main() {
         float kneeY = knee.y;  // -0.40
         float blendHalf = 0.08;
         float blend = smoothstep(kneeY - blendHalf, kneeY + blendHalf, inPos.y);
-        // blend=1.0 above knee (upper leg only), blend=0.0 below knee (full lower leg)
 
         // Upper leg transform (hip rotation only)
         vec3 relU = pos - hip;
-        vec3 posU = hip + rotateX(relU, hipAngle);
-        vec3 normU = rotateX(norm, hipAngle);
+        vec3 posU = hip + rotateX(relU, finalHipAngle);
+        vec3 normU = rotateX(norm, finalHipAngle);
 
         // Lower leg transform (hip + knee rotation)
         vec3 relL = pos - hip;
-        relL = rotateX(relL, hipAngle);
-        vec3 rotatedKnee = rotateX(knee - hip, hipAngle);
+        relL = rotateX(relL, finalHipAngle);
+        vec3 rotatedKnee = rotateX(knee - hip, finalHipAngle);
         vec3 legRel = relL - rotatedKnee;
-        legRel = rotateX(legRel, kneeAngle);
+        legRel = rotateX(legRel, finalKneeAngle);
         vec3 posL = hip + rotatedKnee + legRel;
-        vec3 normL = rotateX(rotateX(norm, hipAngle), kneeAngle);
+        vec3 normL = rotateX(rotateX(norm, finalHipAngle), finalKneeAngle);
 
         // Blend between upper leg and lower leg transforms
         pos = mix(posL, posU, blend);
@@ -202,6 +314,7 @@ void main() {
         pos.x += sway;
     }
 
+    // 跳跃旋转
     if (jumpTwist != 0.0) {
         float c = cos(jumpTwist);
         float s = sin(jumpTwist);

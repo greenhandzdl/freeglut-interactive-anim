@@ -199,6 +199,8 @@ void initShaders() {
     g.uCoolColor_loc = glGetUniformLocation(g.charProgram, "uCoolColor");
     g.uWarmColor_loc = glGetUniformLocation(g.charProgram, "uWarmColor");
     g.uCamPos_loc    = glGetUniformLocation(g.charProgram, "uCamPos");
+    g.uWavePhase_loc = glGetUniformLocation(g.charProgram, "uWavePhase");
+    g.uWaveWeight_loc= glGetUniformLocation(g.charProgram, "uWaveWeight");
 
     GLuint flVS = compileShader(GL_VERTEX_SHADER, FLOOR_VS);
     GLuint flFS = compileShader(GL_FRAGMENT_SHADER, FLOOR_FS);
@@ -217,12 +219,14 @@ void initShaders() {
 // 每帧更新（动画 + 输入处理）
 // ============================================================
 void updateAnimation(float dt) {
+    // 更新时间
     if (g.moveSpeed > 0.05f) {
         g.time += dt * g.moveSpeed;
     } else if (g.jumpPhase <= 0.0f || g.jumpPhase >= 1.0f) {
         g.time += dt * 0.2f;
     }
 
+    // 跳跃状态机
     if (g.jumping && (g.jumpPhase <= 0.0f || g.jumpPhase >= 1.0f)) {
         g.jumpPhase = 0.001f;
     }
@@ -234,9 +238,21 @@ void updateAnimation(float dt) {
         }
     }
 
+    // 挥手状态机
+    if (g.waving) {
+        g.wavePhase += dt * 3.0f;  // 加快挥手频率
+    } else {
+        // 挥手淡出
+        if (g.wavePhase > 0.0f) {
+            g.wavePhase = 0.0f;
+        }
+    }
+
+    // 移动加速和摩擦
     float moveAccel = 2.5f * dt;
     float moveFriction = 1.2f * dt;
 
+    // WASD输入处理 - 修复移动方向
     float dx = 0.0f, dz = 0.0f;
     if (g.keys['w'] || g.keys['W']) dz -= 1.0f;
     if (g.keys['s'] || g.keys['S']) dz += 1.0f;
@@ -248,20 +264,31 @@ void updateAnimation(float dt) {
         dx /= len;
         dz /= len;
 
+        // 修复：将相机坐标系下的输入转换为世界坐标系
+        // 相机角度是绕Y轴的旋转，需要反向旋转输入向量
         float ca = g.cameraAngle;
-        float rx = dx * cosf(ca) - dz * sinf(ca);
-        float rz = dx * sinf(ca) + dz * cosf(ca);
-        g.moveDirX = rx;
-        g.moveDirZ = rz;
+        float cosA = cosf(ca);
+        float sinA = sinf(ca);
+        
+        // 正确的转换：输入是在相机空间，需要转换到世界空间
+        // 当相机在右侧时（angle>0），按W应该向左前方移动
+        float worldDx = dx * cosA + dz * sinA;
+        float worldDz = -dx * sinA + dz * cosA;
+        
+        g.moveDirX = worldDx;
+        g.moveDirZ = worldDz;
 
         g.moveSpeed += moveAccel;
         if (g.moveSpeed > 1.2f) g.moveSpeed = 1.2f;
-        g.modelRotY = atan2f(rx, rz);
+        
+        // 人物朝向移动方向
+        g.modelRotY = atan2f(worldDx, worldDz);
     } else {
         g.moveSpeed -= moveFriction;
         if (g.moveSpeed < 0.0f) g.moveSpeed = 0.0f;
     }
 
+    // 应用移动
     if (g.moveSpeed > 0.01f) {
         g.charPosX += g.moveDirX * g.moveSpeed * dt * 0.8f;
         g.charPosZ += g.moveDirZ * g.moveSpeed * dt * 0.8f;
@@ -309,6 +336,11 @@ void renderScene() {
     glUniform2f(g.uMoveDir_loc, g.moveDirX, g.moveDirZ);
     glUniform1f(g.uMoveSpeed_loc, g.moveSpeed);
     glUniform1f(g.uTessLevel_loc, g.tessLevel);
+    
+    // 挥手参数
+    glUniform1f(g.uWavePhase_loc, g.wavePhase);
+    float waveWeight = g.waving ? 1.0f : 0.0f;
+    glUniform1f(g.uWaveWeight_loc, waveWeight);
 
     Vec3 lightPos = getLightPos();
     glUniform3f(g.uLightPos_loc, lightPos.x, lightPos.y, lightPos.z);

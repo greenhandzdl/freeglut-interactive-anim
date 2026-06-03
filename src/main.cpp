@@ -64,6 +64,17 @@ static void keyboardCallback(unsigned char key, int x, int y) {
             }
             break;
 
+        case 'e':
+        case 'E':
+            g.waving = !g.waving;
+            if (g.waving) {
+                g.wavePhase = 0.0f;
+                std::cout << "[挥手] 开始挥手！" << std::endl;
+            } else {
+                std::cout << "[挥手] 停止挥手！" << std::endl;
+            }
+            break;
+
         case '+':
         case '=':
             g.tessLevel = std::min(g.tessLevel + 0.5f, 12.0f);
@@ -157,6 +168,7 @@ static void printInfo() {
     std::cout << "  操作说明:" << std::endl;
     std::cout << "  W/A/S/D  — 移动人物（相对于摄像机方向）" << std::endl;
     std::cout << "  SPACE    — 跳跃" << std::endl;
+    std::cout << "  E        — 挥手（右臂）" << std::endl;
     std::cout << "  鼠标左键拖拽 — 旋转/升降摄像机" << std::endl;
     std::cout << "  鼠标滚轮 — 缩放摄像机" << std::endl;
     std::cout << "  +/-      — 增加/减少细分级别" << std::endl;
@@ -168,6 +180,7 @@ static void printInfo() {
     std::cout << "  - 曲面细分阶段使用 PN 三角形使表面光滑" << std::endl;
     std::cout << "  - SLERP 关节连接器在几何阶段生成，替代关节球平滑过渡" << std::endl;
     std::cout << "  - 点光源绕人物轨道运动" << std::endl;
+    std::cout << "  - 动画层系统：挥手 > 跳跃 > 行走（优先级从高到低）" << std::endl;
     std::cout << "================================================" << std::endl;
 }
 
