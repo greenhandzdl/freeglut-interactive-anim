@@ -78,60 +78,109 @@ find_package(OpenGL REQUIRED)
 # ============================================================================
 # Find GLEW
 # ============================================================================
-find_package(GLEW QUIET)
+if(IS_MACOS)
+    # macOS Specific Configuration: Include external GLEW and FreeGLUT
+    message(STATUS "Configuring external GLEW and FreeGLUT on macOS")
 
-if(TARGET GLEW::GLEW)
-    message(STATUS "Found GLEW (GLEW::GLEW target)")
-    set(GLEW_TARGET GLEW::GLEW)
+    # Configure and add GLEW subdirectory
+    set(BUILD_UTILS OFF CACHE INTERNAL "Build utilities")
+    add_subdirectory(external/glew/build/cmake)
+    set(GLEW_TARGET glew_s)
     set(GLEW_FOUND TRUE)
-elseif(TARGET glew)
-    message(STATUS "Found GLEW (glew target)")
-    set(GLEW_TARGET glew)
-    set(GLEW_FOUND TRUE)
+
+    # Configure and add FreeGLUT subdirectory
+    set(FREEGLUT_BUILD_DEMOS OFF CACHE INTERNAL "Build FreeGLUT demos.")
+    set(FREEGLUT_BUILD_STATIC_LIBS ON CACHE INTERNAL "Build FreeGLUT static library.")
+    set(FREEGLUT_COCOA ON CACHE INTERNAL "Build support for Cocoa")
+    add_subdirectory(external/freeglut)
+    set(GLUT_TARGET freeglut_static)
+    set(GLUT_FOUND TRUE)
+    set(USE_FREEGLUT ON)
+
+    # Set include paths
+    set(GLUT_INCLUDE ${CMAKE_SOURCE_DIR}/external/freeglut/include)
+    set(GLEW_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/external/glew/include)
 else()
-    if(IS_LINUX)
-        find_package(PkgConfig)
-        if(PkgConfig_FOUND)
-            pkg_check_modules(GLEW glew)
-            if(GLEW_FOUND)
-                message(STATUS "Found GLEW via pkg-config")
-                set(GLEW_TARGET ${GLEW_LIBRARIES})
+    # ============================================================================
+    # Find GLEW
+    # ============================================================================
+    find_package(GLEW QUIET)
+
+    if(TARGET GLEW::GLEW)
+        message(STATUS "Found GLEW (GLEW::GLEW target)")
+        set(GLEW_TARGET GLEW::GLEW)
+        set(GLEW_FOUND TRUE)
+    elseif(TARGET glew)
+        message(STATUS "Found GLEW (glew target)")
+        set(GLEW_TARGET glew)
+        set(GLEW_FOUND TRUE)
+    else()
+        if(IS_LINUX)
+            find_package(PkgConfig)
+            if(PkgConfig_FOUND)
+                pkg_check_modules(GLEW glew)
+                if(GLEW_FOUND)
+                    message(STATUS "Found GLEW via pkg-config")
+                    set(GLEW_TARGET ${GLEW_LIBRARIES})
+                endif()
+            endif()
+        endif()
+
+        if(NOT GLEW_FOUND)
+            find_path(GLEW_INCLUDE_DIR GL/glew.h)
+            find_library(GLEW_LIBRARY NAMES GLEW glew libglew)
+            if(GLEW_INCLUDE_DIR AND GLEW_LIBRARY)
+                message(STATUS "Found GLEW (manual search)")
+                set(GLEW_TARGET ${GLEW_LIBRARY})
+                set(GLEW_FOUND TRUE)
             endif()
         endif()
     endif()
 
     if(NOT GLEW_FOUND)
-        find_path(GLEW_INCLUDE_DIR GL/glew.h)
-        find_library(GLEW_LIBRARY NAMES GLEW glew libglew)
-        if(GLEW_INCLUDE_DIR AND GLEW_LIBRARY)
-            message(STATUS "Found GLEW (manual search)")
-            set(GLEW_TARGET ${GLEW_LIBRARY})
-            set(GLEW_FOUND TRUE)
-        endif()
+        message(WARNING "GLEW not found. Building without GLEW support.\n"
+            "Install GLEW:\n"
+            "  macOS: brew install glew\n"
+            "  Linux: sudo apt-get install libglew-dev")
+        set(GLEW_TARGET "")
     endif()
-endif()
 
-if(NOT GLEW_FOUND)
-    message(WARNING "GLEW not found. Building without GLEW support.\n"
-        "Install GLEW:\n"
-        "  macOS: brew install glew\n"
-        "  Linux: sudo apt-get install libglew-dev")
-    set(GLEW_TARGET "")
-endif()
+    # ============================================================================
+    # Find GLUT / FreeGLUT
+    # ============================================================================
+    set(GLUT_FOUND FALSE)
 
-# ============================================================================
-# Find GLUT / FreeGLUT
-# ============================================================================
-set(GLUT_FOUND FALSE)
+    if(IS_LINUX)
+        find_package(PkgConfig)
+        if(PkgConfig_FOUND)
+            pkg_check_modules(FREEGLUT freeglut)
+            if(FREEGLUT_FOUND)
+                message(STATUS "Found FreeGLUT via pkg-config")
+                set(GLUT_TARGET ${FREEGLUT_LIBRARIES})
+                set(GLUT_INCLUDE ${FREEGLUT_INCLUDE_DIRS})
+                set(GLUT_FOUND TRUE)
+            else()
+                find_package(GLUT REQUIRED)
+                if(TARGET GLUT::GLUT)
+                    message(STATUS "Using system GLUT (GLUT::GLUT)")
+                    set(GLUT_TARGET GLUT::GLUT)
+                else()
+                    message(STATUS "Using system GLUT (legacy)")
+                    set(GLUT_TARGET GLUT)
+                endif()
+                set(GLUT_FOUND TRUE)
+            endif()
+        endif()
+    elseif(USE_FREEGLUT)
+        find_package(FreeGLUT QUIET)
 
-if(IS_LINUX)
-    find_package(PkgConfig)
-    if(PkgConfig_FOUND)
-        pkg_check_modules(FREEGLUT freeglut)
-        if(FREEGLUT_FOUND)
-            message(STATUS "Found FreeGLUT via pkg-config")
-            set(GLUT_TARGET ${FREEGLUT_LIBRARIES})
-            set(GLUT_INCLUDE ${FREEGLUT_INCLUDE_DIRS})
+        if(TARGET FreeGLUT::freeglut)
+            message(STATUS "Found FreeGLUT (FreeGLUT::freeglut)")
+            set(GLUT_TARGET FreeGLUT::freeglut)
+            set(GLUT_FOUND TRUE)
+        elseif(TARGET freeglut::freeglut)
+            message(STATUS "Found FreeGLUT (freeglut::freeglut)")
+            set(GLUT_TARGET freeglut::freeglut)
             set(GLUT_FOUND TRUE)
         else()
             find_package(GLUT REQUIRED)
@@ -144,35 +193,13 @@ if(IS_LINUX)
             endif()
             set(GLUT_FOUND TRUE)
         endif()
-    endif()
-elseif(USE_FREEGLUT)
-    find_package(FreeGLUT QUIET)
-
-    if(TARGET FreeGLUT::freeglut)
-        message(STATUS "Found FreeGLUT (FreeGLUT::freeglut)")
-        set(GLUT_TARGET FreeGLUT::freeglut)
-        set(GLUT_FOUND TRUE)
-    elseif(TARGET freeglut::freeglut)
-        message(STATUS "Found FreeGLUT (freeglut::freeglut)")
-        set(GLUT_TARGET freeglut::freeglut)
-        set(GLUT_FOUND TRUE)
     else()
         find_package(GLUT REQUIRED)
         if(TARGET GLUT::GLUT)
-            message(STATUS "Using system GLUT (GLUT::GLUT)")
             set(GLUT_TARGET GLUT::GLUT)
         else()
-            message(STATUS "Using system GLUT (legacy)")
             set(GLUT_TARGET GLUT)
         endif()
-        set(GLUT_FOUND TRUE)
-    endif()
-else()
-    find_package(GLUT REQUIRED)
-    if(TARGET GLUT::GLUT)
-        set(GLUT_TARGET GLUT::GLUT)
-    else()
-        set(GLUT_TARGET GLUT)
     endif()
 endif()
 
@@ -207,8 +234,14 @@ target_include_directories(${TARGET_NAME} PRIVATE
     ${GLUT_INCLUDE}
 )
 
+if(IS_MACOS)
+    target_include_directories(${TARGET_NAME} PRIVATE
+        ${GLEW_INCLUDE_DIRS}
+    )
+endif()
+
 # Define USE_FREEGLUT if using FreeGLUT
-if(USE_FREEGLUT AND (TARGET FreeGLUT::freeglut OR TARGET freeglut::freeglut))
+if(USE_FREEGLUT AND (TARGET FreeGLUT::freeglut OR TARGET freeglut::freeglut OR TARGET freeglut_static))
     target_compile_definitions(${TARGET_NAME} PRIVATE USE_FREEGLUT)
 endif()
 

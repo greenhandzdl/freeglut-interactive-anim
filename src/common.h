@@ -15,6 +15,9 @@
 
 #ifdef USE_GLEW
 // Include GLEW before GLUT on macOS
+#ifndef GLEW_STATIC
+#define GLEW_STATIC
+#endif
 #include <GL/glew.h>
 #endif
 

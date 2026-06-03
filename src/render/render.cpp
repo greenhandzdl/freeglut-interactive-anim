@@ -3,6 +3,7 @@
  * @brief 渲染阶段实现：GL 初始化、着色器编译/链接、每帧更新与绘制
  */
 #include "render.h"
+#include "../common.h"
 #include "../math/math.h"
 #include "../geometry/geometry.h"
 #include "../shaders/shaders.h"
@@ -11,8 +12,6 @@
 #include <cmath>
 #include <algorithm>
 
-#include <GL/glew.h>
-#include <GL/freeglut.h>
 
 // ============================================================
 // 全局状态实例
