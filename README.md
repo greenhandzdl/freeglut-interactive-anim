@@ -36,7 +36,8 @@ src/
 
 | 按键 | 功能 |
 |------|------|
-| WASD | 移动人物（相对于摄像机方向） |
+| WASD | 移动人物（相对于摄像机方向、轴方向） |
+| [ ] | 调整光源 |
 | Space | 跳跃 |
 | 鼠标左键拖拽 | 旋转/俯仰摄像机 |
 | 鼠标滚轮 | 缩放摄像机 |
@@ -52,7 +53,6 @@ cmake --build .
 ./output/PersonDemo
 ```
 
-**依赖：** Linux 需安装 `freeglut3-dev libglew-dev cmake build-essential`，macOS 需 `brew install glew cmake`。
 
 ## 技术要点
 
