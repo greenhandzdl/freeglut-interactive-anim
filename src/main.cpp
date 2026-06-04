@@ -97,6 +97,17 @@ static void keyboardCallback(unsigned char key, int x, int y) {
             std::cout << "[细分级别] " << g.tessLevel << std::endl;
             break;
 
+        // 当没有鼠标中键时可以使用。
+        case 'u':
+        case 'U':
+            g.cameraDist = std::min(g.cameraDist + 0.3f, 15.0f);
+            break;
+
+        case 'i':
+        case 'I':
+            g.cameraDist = std::max(g.cameraDist - 0.3f, 2.0f);
+            break;
+
         default:
             break;
     }
