@@ -296,7 +296,7 @@ void updateAnimation(float dt) {
         if (g.moveSpeed < 0.0f) g.moveSpeed = 0.0f;
 
         // 空闲时人物朝向相机前方（左键拖拽摄像机时更新朝向）
-        g.modelRotY = g.cameraAngle;
+        g.modelRotY = -g.cameraAngle;
     }
 
     // 应用移动
@@ -347,7 +347,7 @@ void renderScene() {
     glUniform2f(g.uMoveDir_loc, g.moveDirX, g.moveDirZ);
     glUniform1f(g.uMoveSpeed_loc, g.moveSpeed);
     glUniform1f(g.uTessLevel_loc, g.tessLevel);
-    
+
     // 挥手参数
     glUniform1f(g.uWavePhase_loc, g.wavePhase);
     float waveWeight = g.waving ? 1.0f : 0.0f;

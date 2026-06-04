@@ -286,9 +286,9 @@ void genJointConnector(const JointConnectorDef& def,
 static const JointConnectorDef CONNECTORS[] = {
     // ===== 肩关节：从躯干外侧到上臂顶端 =====
     // 左肩：肩关节(-0.26,0.90,0)，上臂半径0.055
-    { -0.26f, 0.90f, 0.0f,   -0.26f, 0.90f, 0.0f,   0.055f, 0.12f,  BONE_TORSO },
+    { -0.20f, 0.90f, 0.0f,   -0.26f, 0.90f, 0.0f,   0.055f, 0.055f, BONE_TORSO },
     // 右肩
-    {  0.26f, 0.90f, 0.0f,    0.26f, 0.90f, 0.0f,   0.055f, 0.12f,  BONE_TORSO },
+    {  0.20f, 0.90f, 0.0f,    0.26f, 0.90f, 0.0f,   0.055f, 0.055f, BONE_TORSO },
 
     // ===== 肘关节：从上臂底部到肘关节中心 =====
     // 左上臂 y 范围 [0.52, 0.90]，肘关节 (-0.28,0.48,0)
