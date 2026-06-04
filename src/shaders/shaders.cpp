@@ -187,7 +187,7 @@ void main() {
             float waveT = uWavePhase * 8.0;  // 快速挥手频率
             
             // 大臂前举：指向相机前方，略微向上
-            waveShoulderAngle = -1.2;  // 向前举起约70度
+            waveShoulderAngle = 1.2;  // 向前举起约70度
             
             // 小臂左右摆动
             waveElbowAngle = 0.8 * sin(waveT);
