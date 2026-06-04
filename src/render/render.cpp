@@ -280,8 +280,8 @@ void updateAnimation(float dt) {
         // D键（相机右）: 世界方向 = (cosA, 0, -sinA)
         
         // 组合移动方向
-        float worldDx = -dz * sinA - dx * cosA;
-        float worldDz = -dz * cosA + dx * sinA;
+        float worldDx = dz * sinA + dx * cosA;
+        float worldDz = dz * cosA - dx * sinA;
         
         g.moveDirX = worldDx;
         g.moveDirZ = worldDz;
@@ -290,10 +290,13 @@ void updateAnimation(float dt) {
         if (g.moveSpeed > 1.2f) g.moveSpeed = 1.2f;
         
         // 人物朝向移动方向
-        g.modelRotY = atan2f(worldDx, worldDz);
+        g.modelRotY = atan2f(worldDx, -worldDz);
     } else {
         g.moveSpeed -= moveFriction;
         if (g.moveSpeed < 0.0f) g.moveSpeed = 0.0f;
+
+        // 空闲时人物朝向相机前方（左键拖拽摄像机时更新朝向）
+        g.modelRotY = g.cameraAngle;
     }
 
     // 应用移动
