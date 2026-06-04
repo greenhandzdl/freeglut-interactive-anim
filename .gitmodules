@@ -1,0 +1,6 @@
+[submodule "external/freeglut"]
+	path = external/freeglut
+	url = https://github.com/freeglut/freeglut.git
+[submodule "external/glew"]
+	path = external/glew
+	url = https://github.com/nigels-com/glew.git
